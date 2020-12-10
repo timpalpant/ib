@@ -540,8 +540,10 @@ func (e *ErrorMessage) read(b *bufio.Reader) (err error) {
 }
 
 // SeverityWarning returns true if this error is of "warning" level.
-func (e *ErrorMessage) SeverityWarning() bool { return e.Code >= 2100 && e.Code <= 2110 }
-func (e *ErrorMessage) Error() error          { return fmt.Errorf("%s (%d/%d)", e.Message, e.id, e.Code) }
+func (e *ErrorMessage) SeverityWarning() bool {
+	return e.Code >= 2100 && e.Code <= 2110 || e.Code == 2158
+}
+func (e *ErrorMessage) Error() error { return fmt.Errorf("%s (%d/%d)", e.Message, e.id, e.Code) }
 
 // OpenOrder .
 type OpenOrder struct {
