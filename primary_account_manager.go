@@ -48,7 +48,7 @@ func (p *PrimaryAccountManager) receive(r Reply) (UpdateStatus, error) {
 		if r.SeverityWarning() {
 			return UpdateFalse, nil
 		}
-		return UpdateFalse, r.Error()
+		return UpdateFalse, r
 	case *AccountDownloadEnd:
 		finished, err := p.nextAccount()
 		if err != nil {

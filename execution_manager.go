@@ -43,7 +43,7 @@ func (e *ExecutionManager) receive(r Reply) (UpdateStatus, error) {
 		if r.SeverityWarning() {
 			return UpdateFalse, nil
 		}
-		return UpdateFalse, r.Error()
+		return UpdateFalse, r
 	case *ExecutionData:
 		t := r.(*ExecutionData)
 		e.values = append(e.values, *t)

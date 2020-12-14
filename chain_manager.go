@@ -51,7 +51,7 @@ func (c *ChainManager) receive(r Reply) (UpdateStatus, error) {
 		if r.SeverityWarning() {
 			return UpdateFalse, nil
 		}
-		return UpdateFalse, r.Error()
+		return UpdateFalse, r
 	case *ContractData:
 		r := r.(*ContractData)
 		expiry, err := time.Parse("20060102", r.Contract.Summary.Expiry)

@@ -126,7 +126,7 @@ func (a *AdvisorAccountManager) receive(r Reply) (UpdateStatus, error) {
 		if r.SeverityWarning() {
 			return UpdateFalse, nil
 		}
-		return UpdateFalse, r.Error()
+		return UpdateFalse, r
 	case *AccountSummary:
 		t := r.(*AccountSummary)
 		a.values[t.Key] = *t

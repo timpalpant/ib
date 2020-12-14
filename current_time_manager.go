@@ -36,7 +36,7 @@ func (m *CurrentTimeManager) receive(r Reply) (UpdateStatus, error) {
 		if r.SeverityWarning() {
 			return UpdateFalse, nil
 		}
-		return UpdateFalse, r.Error()
+		return UpdateFalse, r
 	case *CurrentTime:
 		ct := r.(*CurrentTime)
 		m.t = ct.Time
