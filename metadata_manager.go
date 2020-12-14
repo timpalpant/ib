@@ -93,7 +93,7 @@ func (m *MetadataManager) receive(r Reply) (UpdateStatus, error) {
 		if r.SeverityWarning() {
 			return UpdateFalse, nil
 		}
-		return UpdateFalse, r.Error()
+		return UpdateFalse, r
 	case *ContractData:
 		r := r.(*ContractData)
 		m.metadata = append(m.metadata, *r)

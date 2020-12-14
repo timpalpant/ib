@@ -543,7 +543,8 @@ func (e *ErrorMessage) read(b *bufio.Reader) (err error) {
 func (e *ErrorMessage) SeverityWarning() bool {
 	return e.Code >= 2100 && e.Code <= 2110 || e.Code == 2158
 }
-func (e *ErrorMessage) Error() error { return fmt.Errorf("%s (%d/%d)", e.Message, e.id, e.Code) }
+
+func (e *ErrorMessage) Error() string         { return fmt.Sprintf("%s (%d/%d)", e.Message, e.id, e.Code) }
 
 // OpenOrder .
 type OpenOrder struct {
