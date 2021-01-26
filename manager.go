@@ -80,12 +80,16 @@ type AbstractManager struct {
 	rc     chan Reply
 }
 
-// NewAbstractManager .
-func NewAbstractManager(e *Engine) (*AbstractManager, error) {
+// StartMainLoopFun is a function that should be used by specific Manager implementation to start main loop.
+type StartMainLoopFun func(preLoop func() error, receive func(r Reply) (UpdateStatus, error), preDestroy func())
+
+// NewAbstractManager creates the manager that implement most of the Manager interface contract.
+// It also returns StartMainLoopFun that allow to implement specific manager in external packages that import ib package.
+func NewAbstractManager(e *Engine) (*AbstractManager, StartMainLoopFun, error) {
 	if e == nil {
-		return nil, errors.New("Engine required")
+		return nil, nil, errors.New("engine required")
 	}
-	return &AbstractManager{
+	am := &AbstractManager{
 		rwm:    sync.RWMutex{},
 		term:   make(chan struct{}),
 		exit:   make(chan bool),
@@ -93,7 +97,8 @@ func NewAbstractManager(e *Engine) (*AbstractManager, error) {
 		engs:   make(chan EngineState),
 		eng:    e,
 		rc:     make(chan Reply),
-	}, nil
+	}
+	return am, am.startMainLoop, nil
 }
 
 func (a *AbstractManager) startMainLoop(preLoop func() error, receive func(r Reply) (UpdateStatus, error), preDestroy func()) {

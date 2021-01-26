@@ -8,7 +8,7 @@ import (
 // along with all FA sub-accounts. FA accounts may also consider using
 // AdvisorAccountManager, although the latter will not report position P&Ls.
 type PrimaryAccountManager struct {
-	AbstractManager
+	*AbstractManager
 	id          int64
 	accountCode []string
 	unsubscribe string
@@ -18,18 +18,18 @@ type PrimaryAccountManager struct {
 
 // NewPrimaryAccountManager .
 func NewPrimaryAccountManager(e *Engine) (*PrimaryAccountManager, error) {
-	am, err := NewAbstractManager(e)
+	am, startMainLoop, err := NewAbstractManager(e)
 	if err != nil {
 		return nil, err
 	}
 
-	p := &PrimaryAccountManager{AbstractManager: *am,
+	p := &PrimaryAccountManager{AbstractManager: am,
 		id:        UnmatchedReplyID,
 		values:    map[AccountValueKey]AccountValue{},
 		portfolio: map[PortfolioValueKey]PortfolioValue{},
 	}
 
-	go p.startMainLoop(p.preLoop, p.receive, p.preDestroy)
+	go startMainLoop(p.preLoop, p.receive, p.preDestroy)
 	return p, nil
 }
 

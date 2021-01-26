@@ -72,7 +72,7 @@ var allTags = [...]string{
 // AdvisorAccountManager tracks advisor-managed account values and portfolios.
 // It cannot be used with a non-FA account (use PrimaryAccountManager instead).
 type AdvisorAccountManager struct {
-	AbstractManager
+	*AbstractManager
 	id        int64
 	endMsgs   int
 	values    map[AccountSummaryKey]AccountSummary
@@ -81,18 +81,18 @@ type AdvisorAccountManager struct {
 
 // NewAdvisorAccountManager creates a new AdvisorAccountManager
 func NewAdvisorAccountManager(e *Engine) (*AdvisorAccountManager, error) {
-	am, err := NewAbstractManager(e)
+	am, startMainLoop, err := NewAbstractManager(e)
 	if err != nil {
 		return nil, err
 	}
 
-	a := &AdvisorAccountManager{AbstractManager: *am,
+	a := &AdvisorAccountManager{AbstractManager: am,
 		id:        UnmatchedReplyID,
 		values:    map[AccountSummaryKey]AccountSummary{},
 		portfolio: map[PositionKey]Position{},
 	}
 
-	go a.startMainLoop(a.preLoop, a.receive, a.preDestroy)
+	go startMainLoop(a.preLoop, a.receive, a.preDestroy)
 	return a, nil
 }
 

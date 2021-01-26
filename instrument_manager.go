@@ -2,7 +2,7 @@ package ib
 
 // InstrumentManager .
 type InstrumentManager struct {
-	AbstractManager
+	*AbstractManager
 	id   int64
 	c    Contract
 	last float64
@@ -12,17 +12,17 @@ type InstrumentManager struct {
 
 // NewInstrumentManager .
 func NewInstrumentManager(e *Engine, c Contract) (*InstrumentManager, error) {
-	am, err := NewAbstractManager(e)
+	am, startMainLoop, err := NewAbstractManager(e)
 	if err != nil {
 		return nil, err
 	}
 
 	m := &InstrumentManager{
-		AbstractManager: *am,
+		AbstractManager: am,
 		c:               c,
 	}
 
-	go m.startMainLoop(m.preLoop, m.receive, m.preDestroy)
+	go startMainLoop(m.preLoop, m.receive, m.preDestroy)
 	return m, nil
 }
 

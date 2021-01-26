@@ -11,7 +11,7 @@ type optionm struct {
 
 // MetadataManager .
 type MetadataManager struct {
-	AbstractManager
+	*AbstractManager
 	id       int64
 	c        Contract
 	options  []optionm
@@ -20,7 +20,7 @@ type MetadataManager struct {
 
 // NewMetadataManager .
 func NewMetadataManager(e *Engine, c Contract) (*MetadataManager, error) {
-	am, err := NewAbstractManager(e)
+	am, startMainLoop, err := NewAbstractManager(e)
 	if err != nil {
 		return nil, err
 	}
@@ -35,13 +35,13 @@ func NewMetadataManager(e *Engine, c Contract) (*MetadataManager, error) {
 	}
 
 	m := &MetadataManager{
-		AbstractManager: *am,
+		AbstractManager: am,
 		c:               c,
 		metadata:        []ContractData{},
 		options:         options,
 	}
 
-	go m.startMainLoop(m.preLoop, m.receive, m.preDestroy)
+	go startMainLoop(m.preLoop, m.receive, m.preDestroy)
 	return m, nil
 }
 
