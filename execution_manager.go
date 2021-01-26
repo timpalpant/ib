@@ -6,7 +6,7 @@ import (
 
 // ExecutionManager fetches execution reports from the past 24 hours.
 type ExecutionManager struct {
-	AbstractManager
+	*AbstractManager
 	id     int64
 	filter ExecutionFilter
 	values []ExecutionData
@@ -14,17 +14,17 @@ type ExecutionManager struct {
 
 // NewExecutionManager .
 func NewExecutionManager(e *Engine, filter ExecutionFilter) (*ExecutionManager, error) {
-	am, err := NewAbstractManager(e)
+	am, startMainLoop, err := NewAbstractManager(e)
 	if err != nil {
 		return nil, err
 	}
 
-	em := &ExecutionManager{AbstractManager: *am,
+	em := &ExecutionManager{AbstractManager: am,
 		id:     UnmatchedReplyID,
 		filter: filter,
 	}
 
-	go em.startMainLoop(em.preLoop, em.receive, em.preDestroy)
+	go startMainLoop(em.preLoop, em.receive, em.preDestroy)
 	return em, nil
 }
 

@@ -4,21 +4,21 @@ import "time"
 
 // CurrentTimeManager provides a Manager to access the IB current time on the server side
 type CurrentTimeManager struct {
-	AbstractManager
+	*AbstractManager
 	id int64
 	t  time.Time
 }
 
 // NewCurrentTimeManager .
 func NewCurrentTimeManager(e *Engine) (*CurrentTimeManager, error) {
-	am, err := NewAbstractManager(e)
+	am, startMainLoop, err := NewAbstractManager(e)
 	if err != nil {
 		return nil, err
 	}
 
-	m := &CurrentTimeManager{AbstractManager: *am, id: UnmatchedReplyID}
+	m := &CurrentTimeManager{AbstractManager: am, id: UnmatchedReplyID}
 
-	go m.startMainLoop(m.preLoop, m.receive, m.preDestroy)
+	go startMainLoop(m.preLoop, m.receive, m.preDestroy)
 	return m, nil
 }
 

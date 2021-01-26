@@ -7,7 +7,7 @@ import (
 
 // ChainManager .
 type ChainManager struct {
-	AbstractManager
+	*AbstractManager
 	id     int64
 	c      Contract
 	chains OptionChains
@@ -15,18 +15,18 @@ type ChainManager struct {
 
 // NewChainManager .
 func NewChainManager(e *Engine, c Contract) (*ChainManager, error) {
-	am, err := NewAbstractManager(e)
+	am, startMainLoop, err := NewAbstractManager(e)
 	if err != nil {
 		return nil, err
 	}
 
 	m := &ChainManager{
-		AbstractManager: *am,
+		AbstractManager: am,
 		c:               c,
 		chains:          OptionChains{},
 	}
 
-	go m.startMainLoop(m.preLoop, m.receive, m.preDestroy)
+	go startMainLoop(m.preLoop, m.receive, m.preDestroy)
 	return m, nil
 }
 
