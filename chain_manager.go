@@ -7,7 +7,7 @@ import (
 
 // ChainManager .
 type ChainManager struct {
-	*AbstractManager
+	Manager
 	id     int64
 	c      Contract
 	chains OptionChains
@@ -15,33 +15,47 @@ type ChainManager struct {
 
 // NewChainManager .
 func NewChainManager(e *Engine, c Contract) (*ChainManager, error) {
-	am, startMainLoop, err := NewAbstractManager(e)
+	am, err := NewAbstractManager(e)
 	if err != nil {
 		return nil, err
 	}
 
 	m := &ChainManager{
-		AbstractManager: am,
-		c:               c,
-		chains:          OptionChains{},
+		Manager: am,
+		c:       c,
+		chains:  OptionChains{},
 	}
 
-	go startMainLoop(m.preLoop, m.receive, m.preDestroy)
+	go m.am().StartMainLoop(m.preLoop, m.receive, m.preDestroy)
 	return m, nil
 }
 
+func (c *ChainManager) am() *AbstractManager {
+	return (c.Manager).(*AbstractManager)
+}
+
+func (c *ChainManager) engine() *Engine {
+	return c.am().Engine()
+}
+
+func (c *ChainManager) replyCh() chan Reply {
+	return c.am().ReplyCh()
+}
+
 func (c *ChainManager) preLoop() error {
-	c.id = c.eng.NextRequestID()
+	eng := c.engine()
+	rc := c.replyCh()
+	c.id = eng.NextRequestID()
 	req := &RequestContractData{Contract: c.c}
 	req.Contract.SecurityType = "OPT"
 	req.Contract.LocalSymbol = ""
 	req.SetID(c.id)
-	c.eng.Subscribe(c.rc, c.id)
-	return c.eng.Send(req)
+	eng.Subscribe(rc, c.id)
+	return eng.Send(req)
 }
 
 func (c *ChainManager) preDestroy() {
-	c.eng.Unsubscribe(c.rc, c.id)
+	c.engine().Unsubscribe(c.replyCh(), c.id)
 }
 
 func (c *ChainManager) receive(r Reply) (UpdateStatus, error) {
@@ -74,7 +88,8 @@ func (c *ChainManager) receive(r Reply) (UpdateStatus, error) {
 
 // Chains .
 func (c *ChainManager) Chains() map[time.Time]*OptionChain {
-	c.rwm.RLock()
-	defer c.rwm.RUnlock()
+	am := c.am()
+	am.RLock()
+	defer am.RUnlock()
 	return c.chains
 }

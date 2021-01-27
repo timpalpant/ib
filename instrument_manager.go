@@ -2,7 +2,7 @@ package ib
 
 // InstrumentManager .
 type InstrumentManager struct {
-	*AbstractManager
+	Manager
 	id   int64
 	c    Contract
 	last float64
@@ -12,33 +12,51 @@ type InstrumentManager struct {
 
 // NewInstrumentManager .
 func NewInstrumentManager(e *Engine, c Contract) (*InstrumentManager, error) {
-	am, startMainLoop, err := NewAbstractManager(e)
+	am, err := NewAbstractManager(e)
 	if err != nil {
 		return nil, err
 	}
 
 	m := &InstrumentManager{
-		AbstractManager: am,
-		c:               c,
+		Manager: am,
+		c:       c,
 	}
 
-	go startMainLoop(m.preLoop, m.receive, m.preDestroy)
+	go m.am().StartMainLoop(m.preLoop, m.receive, m.preDestroy)
 	return m, nil
 }
 
+func (i *InstrumentManager) am() *AbstractManager {
+	return (i.Manager).(*AbstractManager)
+}
+
+func (i *InstrumentManager) engine() *Engine {
+	return i.am().Engine()
+}
+
+func (i *InstrumentManager) replyCh() chan Reply {
+	return i.am().ReplyCh()
+}
+
 func (i *InstrumentManager) preLoop() error {
-	i.id = i.eng.NextRequestID()
+	eng := i.engine()
+	rc := i.replyCh()
+
+	i.id = eng.NextRequestID()
 	req := &RequestMarketData{Contract: i.c}
 	req.SetID(i.id)
-	i.eng.Subscribe(i.rc, i.id)
-	return i.eng.Send(req)
+	eng.Subscribe(rc, i.id)
+	return eng.Send(req)
 }
 
 func (i *InstrumentManager) preDestroy() {
-	i.eng.Unsubscribe(i.rc, i.id)
+	eng := i.engine()
+	rc := i.replyCh()
+
+	eng.Unsubscribe(rc, i.id)
 	req := &CancelMarketData{}
 	req.SetID(i.id)
-	i.eng.Send(req)
+	eng.Send(req)
 }
 
 func (i *InstrumentManager) receive(r Reply) (UpdateStatus, error) {
@@ -69,21 +87,24 @@ func (i *InstrumentManager) receive(r Reply) (UpdateStatus, error) {
 
 // Bid .
 func (i *InstrumentManager) Bid() float64 {
-	i.rwm.RLock()
-	defer i.rwm.RUnlock()
+	am := i.am()
+	am.RLock()
+	defer am.RUnlock()
 	return i.bid
 }
 
 // Ask .
 func (i *InstrumentManager) Ask() float64 {
-	i.rwm.RLock()
-	defer i.rwm.RUnlock()
+	am := i.am()
+	am.RLock()
+	defer am.RUnlock()
 	return i.ask
 }
 
 // Last .
 func (i *InstrumentManager) Last() float64 {
-	i.rwm.RLock()
-	defer i.rwm.RUnlock()
+	am := i.am()
+	am.RLock()
+	defer am.RUnlock()
 	return i.last
 }

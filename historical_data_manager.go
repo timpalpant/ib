@@ -4,31 +4,45 @@ import "fmt"
 
 // HistoricalDataManager .
 type HistoricalDataManager struct {
-	*AbstractManager
+	Manager
 	request  RequestHistoricalData
 	histData []HistoricalDataItem
 }
 
 // NewHistoricalDataManager Create a new HistoricalDataManager for the given data request.
 func NewHistoricalDataManager(e *Engine, request RequestHistoricalData) (*HistoricalDataManager, error) {
-	am, startMainLoop, err := NewAbstractManager(e)
+	am, err := NewAbstractManager(e)
 	if err != nil {
 		return nil, err
 	}
 
 	request.id = e.NextRequestID()
 	m := &HistoricalDataManager{
-		AbstractManager: am,
-		request:         request,
+		Manager: am,
+		request: request,
 	}
 
-	go startMainLoop(m.preLoop, m.receive, m.preDestroy)
+	go m.am().StartMainLoop(m.preLoop, m.receive, m.preDestroy)
 	return m, nil
 }
 
+func (m *HistoricalDataManager) am() *AbstractManager {
+	return (m.Manager).(*AbstractManager)
+}
+
+func (m *HistoricalDataManager) engine() *Engine {
+	return m.am().Engine()
+}
+
+func (m *HistoricalDataManager) replyCh() chan Reply {
+	return m.am().ReplyCh()
+}
+
 func (m *HistoricalDataManager) preLoop() error {
-	m.eng.Subscribe(m.rc, m.request.id)
-	return m.eng.Send(&m.request)
+	eng := m.engine()
+	rc := m.replyCh()
+	eng.Subscribe(rc, m.request.id)
+	return eng.Send(&m.request)
 }
 
 func (m *HistoricalDataManager) receive(r Reply) (UpdateStatus, error) {
@@ -48,12 +62,15 @@ func (m *HistoricalDataManager) receive(r Reply) (UpdateStatus, error) {
 }
 
 func (m *HistoricalDataManager) preDestroy() {
-	m.eng.Unsubscribe(m.rc, m.request.id)
+	eng := m.engine()
+	rc := m.replyCh()
+	eng.Unsubscribe(rc, m.request.id)
 }
 
 // Items .
 func (m *HistoricalDataManager) Items() []HistoricalDataItem {
-	m.rwm.RLock()
-	defer m.rwm.RUnlock()
+	am := m.am()
+	am.RLock()
+	defer am.RUnlock()
 	return m.histData
 }

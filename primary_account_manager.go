@@ -8,7 +8,7 @@ import (
 // along with all FA sub-accounts. FA accounts may also consider using
 // AdvisorAccountManager, although the latter will not report position P&Ls.
 type PrimaryAccountManager struct {
-	*AbstractManager
+	Manager
 	id          int64
 	accountCode []string
 	unsubscribe string
@@ -18,27 +18,42 @@ type PrimaryAccountManager struct {
 
 // NewPrimaryAccountManager .
 func NewPrimaryAccountManager(e *Engine) (*PrimaryAccountManager, error) {
-	am, startMainLoop, err := NewAbstractManager(e)
+	am, err := NewAbstractManager(e)
 	if err != nil {
 		return nil, err
 	}
 
-	p := &PrimaryAccountManager{AbstractManager: am,
+	p := &PrimaryAccountManager{Manager: am,
 		id:        UnmatchedReplyID,
 		values:    map[AccountValueKey]AccountValue{},
 		portfolio: map[PortfolioValueKey]PortfolioValue{},
 	}
 
-	go startMainLoop(p.preLoop, p.receive, p.preDestroy)
+	go p.am().StartMainLoop(p.preLoop, p.receive, p.preDestroy)
 	return p, nil
 }
 
+func (p *PrimaryAccountManager) am() *AbstractManager {
+	return (p.Manager).(*AbstractManager)
+}
+
+func (p *PrimaryAccountManager) engine() *Engine {
+	return p.am().Engine()
+}
+
+func (p *PrimaryAccountManager) replyCh() chan Reply {
+	return p.am().ReplyCh()
+}
+
 func (p *PrimaryAccountManager) preLoop() error {
-	p.eng.Subscribe(p.rc, p.id)
+	eng := p.engine()
+	rc := p.replyCh()
+
+	eng.Subscribe(rc, p.id)
 
 	// To address if being run under an FA account, request our accounts
 	// (the 321 warning-level error will be ignored for non-FA accounts)
-	return p.eng.Send(&RequestManagedAccounts{})
+	return eng.Send(&RequestManagedAccounts{})
 }
 
 func (p *PrimaryAccountManager) receive(r Reply) (UpdateStatus, error) {
@@ -87,11 +102,13 @@ func (p *PrimaryAccountManager) receive(r Reply) (UpdateStatus, error) {
 // nextAccount requests the next FA account, unsubscribing from any previous
 // request and returning true if no more accounts are remaining.
 func (p *PrimaryAccountManager) nextAccount() (bool, error) {
+	eng := p.engine()
+
 	if p.unsubscribe != "" {
 		req := &RequestAccountUpdates{}
 		req.Subscribe = false
 		req.AccountCode = p.unsubscribe
-		if err := p.eng.Send(req); err != nil {
+		if err := eng.Send(req); err != nil {
 			return true, err
 		}
 	}
@@ -115,7 +132,7 @@ func (p *PrimaryAccountManager) nextAccount() (bool, error) {
 	req := &RequestAccountUpdates{}
 	req.Subscribe = true
 	req.AccountCode = next
-	if err := p.eng.Send(req); err != nil {
+	if err := eng.Send(req); err != nil {
 		return true, err
 	}
 
@@ -123,23 +140,28 @@ func (p *PrimaryAccountManager) nextAccount() (bool, error) {
 }
 
 func (p *PrimaryAccountManager) preDestroy() {
-	p.eng.Unsubscribe(p.rc, p.id)
+	eng := p.engine()
+	rc := p.replyCh()
+
+	eng.Unsubscribe(rc, p.id)
 	req := &RequestAccountUpdates{}
 	req.Subscribe = false
 	req.AccountCode = p.unsubscribe
-	p.eng.Send(req)
+	eng.Send(req)
 }
 
 // Values returns the most recent snapshot of account information.
 func (p *PrimaryAccountManager) Values() map[AccountValueKey]AccountValue {
-	p.rwm.RLock()
-	defer p.rwm.RUnlock()
+	am := p.am()
+	am.RLock()
+	defer am.RUnlock()
 	return p.values
 }
 
 // Portfolio returns the most recent snapshot of account portfolio.
 func (p *PrimaryAccountManager) Portfolio() map[PortfolioValueKey]PortfolioValue {
-	p.rwm.RLock()
-	defer p.rwm.RUnlock()
+	am := p.am()
+	am.RLock()
+	defer am.RUnlock()
 	return p.portfolio
 }

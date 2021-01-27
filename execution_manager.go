@@ -6,7 +6,7 @@ import (
 
 // ExecutionManager fetches execution reports from the past 24 hours.
 type ExecutionManager struct {
-	*AbstractManager
+	Manager
 	id     int64
 	filter ExecutionFilter
 	values []ExecutionData
@@ -14,26 +14,41 @@ type ExecutionManager struct {
 
 // NewExecutionManager .
 func NewExecutionManager(e *Engine, filter ExecutionFilter) (*ExecutionManager, error) {
-	am, startMainLoop, err := NewAbstractManager(e)
+	am, err := NewAbstractManager(e)
 	if err != nil {
 		return nil, err
 	}
 
-	em := &ExecutionManager{AbstractManager: am,
+	em := &ExecutionManager{Manager: am,
 		id:     UnmatchedReplyID,
 		filter: filter,
 	}
 
-	go startMainLoop(em.preLoop, em.receive, em.preDestroy)
+	go em.am().StartMainLoop(em.preLoop, em.receive, em.preDestroy)
 	return em, nil
 }
 
+func (e *ExecutionManager) am() *AbstractManager {
+	return (e.Manager).(*AbstractManager)
+}
+
+func (e *ExecutionManager) engine() *Engine {
+	return e.am().Engine()
+}
+
+func (e *ExecutionManager) replyCh() chan Reply {
+	return e.am().ReplyCh()
+}
+
 func (e *ExecutionManager) preLoop() error {
-	e.id = e.eng.NextRequestID()
-	e.eng.Subscribe(e.rc, e.id)
+	eng := e.engine()
+	rc := e.replyCh()
+
+	e.id = eng.NextRequestID()
+	eng.Subscribe(rc, e.id)
 	req := &RequestExecutions{Filter: e.filter}
 	req.SetID(e.id)
-	return e.eng.Send(req)
+	return eng.Send(req)
 }
 
 func (e *ExecutionManager) receive(r Reply) (UpdateStatus, error) {
@@ -55,12 +70,13 @@ func (e *ExecutionManager) receive(r Reply) (UpdateStatus, error) {
 }
 
 func (e *ExecutionManager) preDestroy() {
-	e.eng.Unsubscribe(e.rc, e.id)
+	e.engine().Unsubscribe(e.replyCh(), e.id)
 }
 
 // Values returns the most recent snapshot of execution information.
 func (e *ExecutionManager) Values() []ExecutionData {
-	e.rwm.RLock()
-	defer e.rwm.RUnlock()
+	am := e.am()
+	am.RLock()
+	defer am.RUnlock()
 	return e.values
 }

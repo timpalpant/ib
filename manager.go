@@ -80,14 +80,10 @@ type AbstractManager struct {
 	rc     chan Reply
 }
 
-// StartMainLoopFun is a function that should be used by specific Manager implementation to start main loop.
-type StartMainLoopFun func(preLoop func() error, receive func(r Reply) (UpdateStatus, error), preDestroy func())
-
 // NewAbstractManager creates the manager that implement most of the Manager interface contract.
-// It also returns StartMainLoopFun that allow to implement specific manager in external packages that import ib package.
-func NewAbstractManager(e *Engine) (*AbstractManager, StartMainLoopFun, error) {
+func NewAbstractManager(e *Engine) (*AbstractManager, error) {
 	if e == nil {
-		return nil, nil, errors.New("engine required")
+		return nil, errors.New("engine required")
 	}
 	am := &AbstractManager{
 		rwm:    sync.RWMutex{},
@@ -98,10 +94,22 @@ func NewAbstractManager(e *Engine) (*AbstractManager, StartMainLoopFun, error) {
 		eng:    e,
 		rc:     make(chan Reply),
 	}
-	return am, am.startMainLoop, nil
+	return am, nil
 }
 
-func (a *AbstractManager) startMainLoop(preLoop func() error, receive func(r Reply) (UpdateStatus, error), preDestroy func()) {
+// Engine returns Engine
+func (a *AbstractManager) Engine() *Engine {
+	return a.eng
+}
+
+// ReplyCh returns ReplyCh
+func (a *AbstractManager) ReplyCh() chan Reply {
+	return a.rc
+}
+
+// StartMainLoop is method that needs to be run in a separate goroutine to handle events.
+// It's exported to allow implement specific manager in external packages that import ib package.
+func (a *AbstractManager) StartMainLoop(preLoop func() error, receive func(r Reply) (UpdateStatus, error), preDestroy func()) {
 	preLoopError := make(chan error, 1) // 1 - to guarantee that preLoop won't hang on writing to the channel, if we exit the for/select loop earlier for some reason
 	preLoopFinished := make(chan struct{})
 
@@ -173,6 +181,12 @@ func (a *AbstractManager) consume(r Reply, receive func(r Reply) (UpdateStatus, 
 	}
 	return false
 }
+
+// RLock .
+func (a *AbstractManager) RLock() { a.rwm.RLock() }
+
+// RUnlock .
+func (a *AbstractManager) RUnlock() { a.rwm.RUnlock() }
 
 // FatalError .
 func (a *AbstractManager) FatalError() error {

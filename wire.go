@@ -47,7 +47,7 @@ func readStringList(b *bufio.Reader, sep string) (r []string, err error) {
 }
 
 func readInt(b *bufio.Reader) (int64, error) {
-	return readIntOrDefaultIfEmpty(b,  math.MaxInt64)
+	return readIntOrDefaultIfEmpty(b, math.MaxInt64)
 }
 
 func readIntOrDefaultIfEmpty(b *bufio.Reader, defaultIfEmpty int64) (int64, error) {

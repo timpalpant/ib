@@ -11,7 +11,7 @@ type optionm struct {
 
 // MetadataManager .
 type MetadataManager struct {
-	*AbstractManager
+	Manager
 	id       int64
 	c        Contract
 	options  []optionm
@@ -20,7 +20,7 @@ type MetadataManager struct {
 
 // NewMetadataManager .
 func NewMetadataManager(e *Engine, c Contract) (*MetadataManager, error) {
-	am, startMainLoop, err := NewAbstractManager(e)
+	am, err := NewAbstractManager(e)
 	if err != nil {
 		return nil, err
 	}
@@ -35,14 +35,26 @@ func NewMetadataManager(e *Engine, c Contract) (*MetadataManager, error) {
 	}
 
 	m := &MetadataManager{
-		AbstractManager: am,
-		c:               c,
-		metadata:        []ContractData{},
-		options:         options,
+		Manager:  am,
+		c:        c,
+		metadata: []ContractData{},
+		options:  options,
 	}
 
-	go startMainLoop(m.preLoop, m.receive, m.preDestroy)
+	go m.am().StartMainLoop(m.preLoop, m.receive, m.preDestroy)
 	return m, nil
+}
+
+func (m *MetadataManager) am() *AbstractManager {
+	return (m.Manager).(*AbstractManager)
+}
+
+func (m *MetadataManager) engine() *Engine {
+	return m.am().Engine()
+}
+
+func (m *MetadataManager) replyCh() chan Reply {
+	return m.am().ReplyCh()
 }
 
 func (m *MetadataManager) preLoop() error {
@@ -65,19 +77,25 @@ func (m *MetadataManager) request() error {
 		m.c.Exchange = opt.exchange
 	}
 
-	m.eng.Unsubscribe(m.rc, m.id) // AbstractMgr goroutine already rx reply
-	m.id = m.eng.NextRequestID()
+	eng := m.engine()
+	rc := m.replyCh()
+
+	eng.Unsubscribe(rc, m.id) // AbstractMgr goroutine already rx reply
+	m.id = eng.NextRequestID()
 	req := &RequestContractData{
 		Contract: m.c,
 	}
 	req.SetID(m.id)
-	m.eng.Subscribe(m.rc, m.id)
+	eng.Subscribe(rc, m.id)
 
-	return m.eng.Send(req)
+	return eng.Send(req)
 }
 
 func (m *MetadataManager) preDestroy() {
-	m.eng.Unsubscribe(m.rc, m.id)
+	eng := m.engine()
+	rc := m.replyCh()
+
+	eng.Unsubscribe(rc, m.id)
 }
 
 func (m *MetadataManager) receive(r Reply) (UpdateStatus, error) {
@@ -106,14 +124,16 @@ func (m *MetadataManager) receive(r Reply) (UpdateStatus, error) {
 
 // Contract .
 func (m *MetadataManager) Contract() Contract {
-	m.rwm.RLock()
-	defer m.rwm.RUnlock()
+	am := m.am()
+	am.RLock()
+	defer am.RUnlock()
 	return m.c
 }
 
 // ContractData .
 func (m *MetadataManager) ContractData() []ContractData {
-	m.rwm.RLock()
-	defer m.rwm.RUnlock()
+	am := m.am()
+	am.RLock()
+	defer am.RUnlock()
 	return m.metadata
 }

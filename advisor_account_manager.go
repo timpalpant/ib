@@ -72,7 +72,7 @@ var allTags = [...]string{
 // AdvisorAccountManager tracks advisor-managed account values and portfolios.
 // It cannot be used with a non-FA account (use PrimaryAccountManager instead).
 type AdvisorAccountManager struct {
-	*AbstractManager
+	Manager
 	id        int64
 	endMsgs   int
 	values    map[AccountSummaryKey]AccountSummary
@@ -81,24 +81,38 @@ type AdvisorAccountManager struct {
 
 // NewAdvisorAccountManager creates a new AdvisorAccountManager
 func NewAdvisorAccountManager(e *Engine) (*AdvisorAccountManager, error) {
-	am, startMainLoop, err := NewAbstractManager(e)
+	am, err := NewAbstractManager(e)
 	if err != nil {
 		return nil, err
 	}
 
-	a := &AdvisorAccountManager{AbstractManager: am,
+	a := &AdvisorAccountManager{Manager: am,
 		id:        UnmatchedReplyID,
 		values:    map[AccountSummaryKey]AccountSummary{},
 		portfolio: map[PositionKey]Position{},
 	}
 
-	go startMainLoop(a.preLoop, a.receive, a.preDestroy)
+	go a.am().StartMainLoop(a.preLoop, a.receive, a.preDestroy)
 	return a, nil
 }
 
+func (a *AdvisorAccountManager) am() *AbstractManager {
+	return (a.Manager).(*AbstractManager)
+}
+
+func (a *AdvisorAccountManager) engine() *Engine {
+	return a.am().Engine()
+}
+
+func (a *AdvisorAccountManager) replyCh() chan Reply {
+	return a.am().ReplyCh()
+}
+
 func (a *AdvisorAccountManager) preLoop() error {
-	a.id = a.eng.NextRequestID()
-	a.eng.Subscribe(a.rc, a.id)
+	eng := a.engine()
+	rc := a.replyCh()
+	a.id = eng.NextRequestID()
+	eng.Subscribe(rc, a.id)
 
 	var tags bytes.Buffer
 	for _, tag := range allTags {
@@ -110,13 +124,13 @@ func (a *AdvisorAccountManager) preLoop() error {
 	reqAs.SetID(a.id)
 	reqAs.Group = "All"
 	reqAs.Tags = tags.String()
-	if err := a.eng.Send(reqAs); err != nil {
+	if err := eng.Send(reqAs); err != nil {
 		return err
 	}
 
-	a.eng.Subscribe(a.rc, UnmatchedReplyID)
+	eng.Subscribe(rc, UnmatchedReplyID)
 	reqPos := &RequestPositions{}
-	return a.eng.Send(reqPos)
+	return eng.Send(reqPos)
 }
 
 func (a *AdvisorAccountManager) receive(r Reply) (UpdateStatus, error) {
@@ -147,27 +161,31 @@ func (a *AdvisorAccountManager) receive(r Reply) (UpdateStatus, error) {
 }
 
 func (a *AdvisorAccountManager) preDestroy() {
-	a.eng.Unsubscribe(a.rc, a.id)
-	a.eng.Unsubscribe(a.rc, UnmatchedReplyID)
+	eng := a.engine()
+	rc := a.replyCh()
+	eng.Unsubscribe(rc, a.id)
+	eng.Unsubscribe(rc, UnmatchedReplyID)
 
 	canAs := &CancelAccountSummary{}
 	canAs.SetID(a.id)
-	a.eng.Send(canAs)
+	eng.Send(canAs)
 
 	canPos := &CancelPositions{}
-	a.eng.Send(canPos)
+	eng.Send(canPos)
 }
 
 // Values returns the most recent snapshot of account information.
 func (a *AdvisorAccountManager) Values() map[AccountSummaryKey]AccountSummary {
-	a.rwm.RLock()
-	defer a.rwm.RUnlock()
+	am := a.am()
+	am.RLock()
+	defer am.RUnlock()
 	return a.values
 }
 
 // Portfolio returns the most recent snapshot of account portfolio.
 func (a *AdvisorAccountManager) Portfolio() map[PositionKey]Position {
-	a.rwm.RLock()
-	defer a.rwm.RUnlock()
+	am := a.am()
+	am.RLock()
+	defer am.RUnlock()
 	return a.portfolio
 }
