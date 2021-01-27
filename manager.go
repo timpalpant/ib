@@ -34,7 +34,9 @@ const (
 //
 // Clients must invoke the Refresh() method to obtain the channel that will be
 // signalled whenever the Manager has new data available from one or more
-// accessors. The Manager will close the refresh channel when no further updates
+// accessors. The client must notify the manager that the data has been read using
+// the object received from the channel.
+// The Manager will close the refresh channel when no further updates
 // will be provided. This may occur for three reasons: (i) a client has invoked
 // Close(); (ii) the Manager encountered an error (which is available via
 // FatalError()) or (iii) the Manager is aware no new data will be sent by this
@@ -64,8 +66,56 @@ const (
 // highly recommended to use "defer manager.Close()".
 type Manager interface {
 	FatalError() error
-	Refresh() <-chan bool
+	Refresh() <-chan Acknowledger
 	Close()
+}
+
+// Acknowledger defines a contract to acknowledge Manager that the new data from
+// one or more accessors is read. It prevents a possible data race when the client
+// receives a notification from the manager about the data update, but after the
+// notification, the manager does not wait for the client to read the data, but
+// updates with an even newer version. To avoid this data race, the client must
+// call Acknowledge method to notify the manager that the data has been read.
+type Acknowledger interface {
+	Acknowledge()
+}
+
+// Ack implements Acknowledger interface and allows Manager to wait until the data
+// is read by the client.
+type Ack struct {
+	ackOnce sync.Once
+	ack     chan struct{}
+}
+
+// NewAck creates new instance of Ack which implements Acknowledger interface.
+func NewAck() *Ack {
+	return &Ack{
+		ack: make(chan struct{}),
+	}
+}
+
+// WaitForAcknowledgment is called by the Manager to wait until the data is read by
+// the client.
+func (a *Ack) WaitForAcknowledgment() {
+	if a == nil {
+		return
+	}
+	if ack := a.ack; ack != nil {
+		<-ack
+	}
+}
+
+// Acknowledge is called by the client to notify Manager that the data has been read.
+// It implements Acknowledger interface.
+func (a *Ack) Acknowledge() {
+	if a == nil {
+		return
+	}
+	if ack := a.ack; ack != nil {
+		a.ackOnce.Do(func() {
+			close(ack)
+		})
+	}
 }
 
 // AbstractManager implements most of the Manager interface contract.
@@ -73,7 +123,7 @@ type AbstractManager struct {
 	rwm    sync.RWMutex
 	term   chan struct{}
 	exit   chan bool
-	update chan bool
+	update chan Acknowledger
 	engs   chan EngineState
 	eng    *Engine
 	err    error
@@ -89,7 +139,7 @@ func NewAbstractManager(e *Engine) (*AbstractManager, error) {
 		rwm:    sync.RWMutex{},
 		term:   make(chan struct{}),
 		exit:   make(chan bool),
-		update: make(chan bool),
+		update: make(chan Acknowledger),
 		engs:   make(chan EngineState),
 		eng:    e,
 		rc:     make(chan Reply),
@@ -174,9 +224,13 @@ func (a *AbstractManager) consume(r Reply, receive func(r Reply) (UpdateStatus, 
 	switch status {
 	case UpdateFalse:
 	case UpdateTrue:
-		a.update <- true
+		ack := NewAck()
+		a.update <- ack
+		ack.WaitForAcknowledgment()
 	case UpdateFinish:
-		a.update <- true
+		ack := NewAck()
+		a.update <- ack
+		ack.WaitForAcknowledgment()
 		return true
 	}
 	return false
@@ -194,7 +248,7 @@ func (a *AbstractManager) FatalError() error {
 }
 
 // Refresh .
-func (a *AbstractManager) Refresh() <-chan bool {
+func (a *AbstractManager) Refresh() <-chan Acknowledger {
 	return a.update
 }
 
@@ -222,10 +276,11 @@ func SinkManager(m Manager, timeout time.Duration, updateStop int) (updates int,
 		case <-idleTimer.C:
 			m.Close()
 			return updates, fmt.Errorf("SinkManager: no new update in %s", timeout)
-		case _, ok := <-m.Refresh():
+		case ack, ok := <-m.Refresh():
 			if !ok {
 				return updates, m.FatalError()
 			}
+			ack.Acknowledge()
 			updates++
 			if updates >= updateStop && !sentClose {
 				sentClose = true

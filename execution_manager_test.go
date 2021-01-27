@@ -25,7 +25,8 @@ func TestExecutionManager(t *testing.T) {
 	// demo accounts have no executions, so this just tests the accessor
 	fmt.Printf("%v\n", em.Values())
 
-	if b, ok := <-em.Refresh(); ok {
-		t.Fatalf("Expected the refresh channel to be closed, but got %t", b)
+	if ack, ok := <-em.Refresh(); ok {
+		ack.Acknowledge()
+		t.Fatalf("Expected the refresh channel to be closed, but got %t", ack)
 	}
 }

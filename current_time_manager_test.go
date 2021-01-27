@@ -30,8 +30,9 @@ func TestCurrentTimeManager(t *testing.T) {
 		t.Fatalf("Expected time to be later than serverTime of %s, got: %s", engine.serverTime, ctmTime)
 	}
 
-	if b, ok := <-ctm.Refresh(); ok {
-		t.Fatalf("Expected the refresh channel to be closed, but got %t", b)
+	if ack, ok := <-ctm.Refresh(); ok {
+		ack.Acknowledge()
+		t.Fatalf("Expected the refresh channel to be closed, but got %t", ack)
 	}
 
 }

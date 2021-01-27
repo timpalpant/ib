@@ -43,7 +43,8 @@ func TestHistoricalDataManager(t *testing.T) {
 		t.Logf("%s: %.4f %.4f %.4f %.4f\n", histItem.Date, histItem.Open, histItem.High, histItem.Low, histItem.Close)
 	}
 
-	if b, ok := <-hdm.Refresh(); ok {
-		t.Fatalf("Expected the refresh channel to be closed, but got %t", b)
+	if ack, ok := <-hdm.Refresh(); ok {
+		ack.Acknowledge()
+		t.Fatalf("Expected the refresh channel to be closed, but got %t", ack)
 	}
 }

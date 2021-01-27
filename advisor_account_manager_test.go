@@ -26,7 +26,8 @@ func TestAdvisorAccountManager(t *testing.T) {
 	// demo accounts have no portfolio, so this just tests the accessor
 	aam.Portfolio()
 
-	if b, ok := <-aam.Refresh(); ok {
-		t.Fatalf("Expected the refresh channel to be closed, but got %t", b)
+	if ack, ok := <-aam.Refresh(); ok {
+		ack.Acknowledge()
+		t.Fatalf("Expected the refresh channel to be closed, but got %t", ack)
 	}
 }

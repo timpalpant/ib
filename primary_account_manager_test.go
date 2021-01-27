@@ -26,8 +26,8 @@ func TestPrimaryAccountManager(t *testing.T) {
 	// demo accounts have no guaranteed portfolio, so this just tests the accessor
 	pam.Portfolio()
 
-	if b, ok := <-pam.Refresh(); ok {
-		t.Fatalf("Expected the refresh channel to be closed, but got %t", b)
+	if ack, ok := <-pam.Refresh(); ok {
+		ack.Acknowledge()
+		t.Fatalf("Expected the refresh channel to be closed, but got %t", ack)
 	}
-
 }
