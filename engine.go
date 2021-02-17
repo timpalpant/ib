@@ -113,7 +113,7 @@ func NewEngine(opt EngineOptions) (*Engine, error) {
 	}
 
 	e := Engine{
-		id:               uniqueID(100),
+		id:               uniqueID(2000000000),
 		exit:             make(chan bool),
 		terminated:       make(chan struct{}),
 		ch:               make(chan command),
@@ -409,6 +409,9 @@ func (e *Engine) sendCommand(c func()) {
 func (e *Engine) Subscribe(o chan<- Reply, id int64) {
 	e.sendCommand(func() {
 		if id != UnmatchedReplyID {
+			if _, ok := e.observers[id]; ok {
+				log.Printf("WARNING! A subscription already exists for the ID:%v, new subscription will override the previous one!", id)
+			}
 			e.observers[id] = o
 			return
 		}
