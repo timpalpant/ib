@@ -3,7 +3,9 @@ package ib
 import (
 	"bufio"
 	"bytes"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
 	"strconv"
 	"strings"
@@ -160,6 +162,31 @@ func readTime(b *bufio.Reader, f timeFmt) (t time.Time, err error) {
 
 }
 
+// read 4 bytes on wire in network order
+func readUInt32(b io.Reader) (uint32, error) {
+
+	data := make([]byte, 4)
+
+	n, err := b.Read(data)
+	if err != nil {
+		return 0, err
+	}
+
+	if n != len(data) {
+		// error?
+	}
+
+	buf := bytes.NewReader(data)
+
+	var num uint32
+	err = binary.Read(buf, binary.BigEndian, &num)
+	if err != nil {
+		return 0, err
+	}
+
+	return num, nil
+}
+
 func writeString(b *bytes.Buffer, s string) error {
 	_, err := b.WriteString(s + "\000")
 	return err
@@ -171,6 +198,19 @@ func writeInt(b *bytes.Buffer, i int64) error {
 
 func writeFloat(b *bytes.Buffer, f float64) error {
 	return writeString(b, strconv.FormatFloat(f, 'g', 10, 64))
+}
+
+func writeTagValue(b *bytes.Buffer, options []TagValue) error {
+	var optionsBuf bytes.Buffer
+
+	optionsBuf.WriteString("")
+	for _, opt := range options {
+		optionsBuf.WriteString(opt.Tag)
+		optionsBuf.WriteString("=")
+		optionsBuf.WriteString(opt.Value)
+		optionsBuf.WriteString(";")
+	}
+	return writeString(b, optionsBuf.String())
 }
 
 // TODO: this never errors. Is it expected?

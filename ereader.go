@@ -59,6 +59,21 @@ const (
 	mDisplayGroupUpdated                      = 68
 )
 
+type serverHandshake struct {
+	version int64
+	time    time.Time
+}
+
+func (s *serverHandshake) read(b *bufio.Reader) error {
+	var err error
+
+	if s.version, err = readInt(b); err != nil {
+		return err
+	}
+	s.time, err = readTime(b, timeReadLocalDateTime)
+	return err
+}
+
 // code2Msg is equivalent of EReader.processMsg() switch statement cases.
 func code2Msg(code int64) (r Reply, err error) {
 	switch code {
@@ -1143,13 +1158,18 @@ func (c *ContractData) read(b *bufio.Reader) (err error) {
 		return err
 	}
 	c.Contract.SecIDList = make([]TagValue, secIDListCount)
-	for _, si := range c.Contract.SecIDList {
-		if si.Tag, err = readString(b); err != nil {
+	for i := int64(0); i < secIDListCount; i++ {
+		tag, err := readString(b)
+		if err != nil {
 			return err
 		}
-		if si.Value, err = readString(b); err != nil {
+		c.Contract.SecIDList[i].Tag = tag
+
+		value, err := readString(b)
+		if err != nil {
 			return err
 		}
+		c.Contract.SecIDList[i].Value = value
 	}
 	return err
 }
