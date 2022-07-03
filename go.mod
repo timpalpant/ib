@@ -1,3 +1,3 @@
-module github.com/dimchansky/ib
+module github.com/timpalpant/ib
 
-go 1.15
+go 1.18
