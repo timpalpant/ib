@@ -1,3 +1,3 @@
-module github.com/dsouzae/ib/v976
+module github.com/timpalpant/ib/v976
 
-go 1.17
+go 1.18
