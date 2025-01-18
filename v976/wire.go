@@ -167,7 +167,7 @@ func readUInt32(b io.Reader) (uint32, error) {
 
 	data := make([]byte, 4)
 
-	n, err := b.Read(data)
+	n, err := io.ReadFull(b, data)
 	if err != nil {
 		return 0, err
 	}
@@ -176,14 +176,7 @@ func readUInt32(b io.Reader) (uint32, error) {
 		// error?
 	}
 
-	buf := bytes.NewReader(data)
-
-	var num uint32
-	err = binary.Read(buf, binary.BigEndian, &num)
-	if err != nil {
-		return 0, err
-	}
-
+	num := binary.BigEndian.Uint32(data)
 	return num, nil
 }
 
