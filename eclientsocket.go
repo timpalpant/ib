@@ -1,7 +1,6 @@
 package ib
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"math"
@@ -54,7 +53,7 @@ type writeMapSlice []writeMap
 // TODO: refactor helpers to use io.Writer instead of bytes.Buffer.
 func (m writeMapSlice) Dump(w *bytes.Buffer) error {
 	for _, elem := range m {
-		var err = fmt.Errorf("Unkown function type: %T", elem.fct)
+		var err = fmt.Errorf("Unknown function type: %T", elem.fct)
 		switch fct := elem.fct.(type) {
 		case func(*bytes.Buffer, time.Time, timeFmt) error:
 			err = fct(w, elem.val.(time.Time), elem.extra.(timeFmt))
@@ -134,21 +133,6 @@ const (
 	mStartAPI                                     = 71
 	mRequestSecDefOptParams                       = 78
 )
-
-type serverHandshake struct {
-	version int64
-	time    time.Time
-}
-
-func (s *serverHandshake) read(b *bufio.Reader) error {
-	var err error
-
-	if s.version, err = readInt(b); err != nil {
-		return err
-	}
-	s.time, err = readTime(b, timeReadLocalDateTime)
-	return err
-}
 
 // StartAPI is equivalent of IB API EClientSocket.startAPI().
 type StartAPI struct {
