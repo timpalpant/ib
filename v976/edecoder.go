@@ -2,12 +2,15 @@ package ib
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"math"
 	"time"
 )
 
 // This file ports IB API EDecoder.java. Please preserve declaration order.
+
+var ErrUnsupportedMessageType = errors.New("received an unsupported message type")
 
 // IncomingMessageID .
 type IncomingMessageID int64
@@ -205,43 +208,10 @@ func code2Msg(code int64) (r Reply, err error) {
 		r = &DisplayGroupList{}
 	case int64(mDisplayGroupUpdated):
 		r = &DisplayGroupUpdated{}
-	case int64(mVerifyAndAuthMessageAPI):
-	case int64(mVerifyAndAuthCompleted):
-	case int64(mPositionMulti):
-	case int64(mPositionMultiEnd):
-	case int64(mAccountUpdateMulti):
-	case int64(mAccountUpdateMultiEnd):
-	case int64(mSecurityDefinitionOptionParameter):
-	case int64(mSecurityDefinitionOptionParameterEnd):
-	case int64(mSoftDollarTiers):
-	case int64(mFamilyCodes):
-	case int64(mSmartComponents):
-	case int64(mTickReqParams):
 	case int64(mSymbolSamples):
 		r = &SymbolSamples{}
-	case int64(mMktDepthExchanges):
-	case int64(mHeadTimestamp):
-	case int64(mTickNews):
-	case int64(mNewsProviders):
-	case int64(mNewsArticle):
-	case int64(mHistoricalNews):
-	case int64(mHistoricalNewsEnd):
-	case int64(mHistogramData):
-	case int64(mHistoricalDataUpdate):
-	case int64(mRerouteMktDataReq):
-	case int64(mRerouteMktDepthReq):
-	case int64(mMarketRule):
-	case int64(mPnl):
-	case int64(mPnlSingle):
-	case int64(mHistoricalTicks):
-	case int64(mHistoricalTicksBidAsk):
-	case int64(mHistoricalTicksLast):
-	case int64(mTickByTick):
-	case int64(mOrderBound):
-	case int64(mCompletedOrder):
-	case int64(mCompletedOrdersEnd):
 	default:
-		err = fmt.Errorf("Unsupported incoming message type %d", code)
+		err = fmt.Errorf("%w: code %d", ErrUnsupportedMessageType, code)
 	}
 	return r, err
 }

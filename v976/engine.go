@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -274,6 +275,8 @@ func (e *Engine) startReceiver() {
 			case e.rxErr <- err:
 				return
 			}
+		} else if r == nil {
+			continue
 		}
 
 		select {
@@ -738,6 +741,10 @@ func (e *Engine) receive() (Reply, error) {
 	// decode message
 	r, err := code2Msg(code)
 	if err != nil {
+		if errors.Is(err, ErrUnsupportedMessageType) {
+			e.logger.Printf("WARNING: %v", err)
+			return nil, nil
+		}
 		if e.dumpConversation {
 			e.logger.Printf("DUMP: %d< %v %s\n", e.client, code, err)
 		}
